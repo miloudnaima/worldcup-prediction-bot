@@ -1,3 +1,12 @@
-pyTelegramBotAPI
-google-genai
-flask
+# Football Intelligence Telegram Bot — Dependencies
+# Install with: pip install -r requirements.txt
+
+# Telegram Bot library
+pyTelegramBotAPI>=4.14.0
+
+# Web server (keeps Render dyno alive)
+flask>=3.0.0
+
+# Google Gemini AI SDK (new google-genai package)
+# NOTE: This is the NEW package (google-genai), NOT the legacy google-generativeai
+google-genai>=1.0.0
