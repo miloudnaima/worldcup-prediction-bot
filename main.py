@@ -1,4 +1,3 @@
-```python
 import os
 import telebot
 from google import genai
