@@ -213,10 +213,14 @@ def predict_command(message):
 # ============================================================
 
 if __name__ == "__main__":
-    # Start the keep-alive server for Render
-    threading.Thread(target=run_web_server, daemon=True).start()
+    print("Initializing bot in the background...", flush=True)
     
-    print("All elite commands initialized. Bot is polling...")
+    # 1. Start the Telegram bot polling in a background thread safely
+    bot_thread = threading.Thread(target=lambda: bot.infinity_polling(timeout=60, long_polling_timeout=60), daemon=True)
+    bot_thread.start()
     
-    # Run the bot polling mechanism safely
-    bot.infinity_polling(timeout=60, long_polling_timeout=60)
+    print("Starting web server on main thread for Render...", flush=True)
+    
+    # 2. Run Flask in the MAIN thread so Render detects it instantly
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, use_reloader=False)
