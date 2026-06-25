@@ -42,8 +42,12 @@ GEMINI_API_KEY_B64: str = "PASTE_YOUR_BASE64_ENCODED_GEMINI_API_KEY_HERE"
 def decode_b64(encoded: str) -> str:
     """
     Decode a Base64-encoded UTF-8 string to retrieve the original secret.
-    This prevents raw API keys from being visible to code-scanning tools.
+    Auto-fixes missing padding (= characters) to prevent binascii errors.
     """
+    encoded = encoded.strip()
+    missing = len(encoded) % 4
+    if missing:
+        encoded += "=" * (4 - missing)
     return base64.b64decode(encoded.encode("utf-8")).decode("utf-8")
 
 
