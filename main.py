@@ -35,8 +35,8 @@ from google.genai import types
 # Replace the placeholder strings with your own Base64-encoded values.
 # ─────────────────────────────────────────────────────────────────────────────
 
-TELEGRAM_TOKEN_B64: str = "ODg5NjY4NjgwMzpBQUYxVVBadTc1bXUxaWFLbmZRMzJCRmlVMkdtcUNlc3NDOA=="
-GEMINI_API_KEY_B64: str = "QVEuQWI4Uk42SW9nNlpwbzduQWVrV0xJdWVyU2lSM1JvMHJpdjRIa3FERE1yd1pSQ2gzYkE="
+TELEGRAM_TOKEN_B64: str = "PASTE_YOUR_BASE64_ENCODED_TELEGRAM_TOKEN_HERE"
+GEMINI_API_KEY_B64: str = "PASTE_YOUR_BASE64_ENCODED_GEMINI_API_KEY_HERE"
 
 
 def decode_b64(encoded: str) -> str:
@@ -73,7 +73,7 @@ app = Flask(__name__)
 
 # ── Gemini AI Client ──────────────────────────────────────────────────────────
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-GEMINI_MODEL: str = "gemini-2.5-flash"
+GEMINI_MODEL: str = "gemini-1.5-flash"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,34 +123,49 @@ def send_long_message(chat_id: int, text: str) -> None:
 
 def ask_gemini(prompt: str) -> str:
     """
-    Send a prompt to Gemini AI with Google Search grounding enabled.
+    Send a prompt to Gemini AI.
 
-    Google Search grounding allows Gemini to retrieve real-time information
-    (live fixtures, current odds, exchange rates, etc.) before generating
-    its response, making answers accurate and up to date.
+    Strategy:
+      1. Try with Google Search grounding (real-time data).
+      2. If that fails (e.g. 403 on free key), retry without grounding
+         so the bot always gives some answer using Gemini's own knowledge.
 
-    Returns a plain-text string. On any exception, returns a descriptive
-    error message instead of raising so the bot always replies to the user.
+    Returns a plain-text string; never raises.
     """
+    # -- Attempt 1: with Google Search grounding ------------------------------
     try:
         response = gemini_client.models.generate_content(
             model=GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
-                temperature=0.5,        # Balanced creativity / factual accuracy
+                temperature=0.5,
             ),
         )
-
         result: str = response.text
-        if not result or not result.strip():
-            return "The AI returned an empty response. Please try again in a moment."
-        return result.strip()
+        if result and result.strip():
+            return result.strip()
+    except Exception as exc:
+        logger.warning(
+            "Gemini + Google Search failed (%s) — retrying without grounding.", exc
+        )
+
+    # -- Attempt 2: plain generation, no grounding ----------------------------
+    try:
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.5),
+        )
+        result = response.text
+        if result and result.strip():
+            return result.strip()
+        return "The AI returned an empty response. Please try again in a moment."
 
     except Exception as exc:
-        logger.error("Gemini API call failed: %s", exc, exc_info=True)
+        logger.error("Gemini fallback also failed: %s", exc, exc_info=True)
         return (
-            "An error occurred while contacting the AI service.\n"
+            "The AI service is temporarily unavailable.\n"
             "Please try again in a few moments.\n\n"
             f"Technical details: {exc}"
         )
